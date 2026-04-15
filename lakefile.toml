@@ -1,0 +1,6 @@
+name = "mk-logic"
+version = "0.1.0"
+defaultTargets = ["MkLogic"]
+
+[[lean_lib]]
+name = "MkLogic"
