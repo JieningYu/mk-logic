@@ -11,23 +11,20 @@ instance : Membership Class Class where mem := In
 
 abbrev Ensemble (x : Class) := ∃ (y : Class), x ∈ y
 
-axiom Class.classify (x : Class) (P : Class → Prop) : x ∈ Classify P ↔ (Ensemble x) ∧ (P x)
-
-abbrev union_classifier (x y z : Class) := (z ∈ x) ∨ (z ∈ y)
-abbrev inter_classifier (x y z : Class) := (z ∈ x) ∧ (z ∈ y)
+@[simp] axiom Class.classify {P : Class → Prop} : x ∈ Classify P ↔ (Ensemble x) ∧ (P x)
 
 def Ensemble.intro (p : x ∈ y) : Ensemble x := Exists.intro y p
 
 noncomputable instance : Union Class where
-  union (x y : Class) := Classify (union_classifier x y)
-
+  union (x y : Class) := Classify fun z => z ∈ x ∨ z ∈ y
+  
 noncomputable instance : Inter Class where
-  inter (x y : Class) := Classify (inter_classifier x y)
-
+  inter (x y : Class) := Classify fun z => z ∈ x ∧ z ∈ y
+  
 @[simp] theorem Union.dist : z ∈ x ∪ y ↔ (z ∈ x) ∨ (z ∈ y) := Iff.intro
-  (fun h => ((Class.classify z (union_classifier x y)).mp h).right)
+  (fun h => (Class.classify.mp h).right)
   (fun h =>
-    have h1 := (Class.classify z (union_classifier x y)).mpr
+    have h1 := Class.classify.mpr
     h.elim
       (fun zsx => h1 ⟨Ensemble.intro zsx, Or.inl zsx⟩)
       (fun zsy => h1 ⟨Ensemble.intro zsy, Or.inr zsy⟩)
@@ -37,10 +34,8 @@ def Union.split : z ∈ x ∪ y → (z ∈ x) ∨ (z ∈ y) := Iff.mp Union.dist
 def Union.intro : (z ∈ x) ∨ (z ∈ y) → z ∈ x ∪ y := Iff.mpr Union.dist
 
 @[simp] theorem Inter.dist : z ∈ x ∩ y ↔ (z ∈ x) ∧ (z ∈ y) := Iff.intro
-  (fun h => ((Class.classify z (inter_classifier x y)).mp h).right)
-  (fun h =>
-    h.elim (fun zsx zsy => (Class.classify z (inter_classifier x y)).mpr ⟨Ensemble.intro zsx, ⟨zsx, zsy⟩⟩)
-  )
+  (fun h => (Class.classify.mp h).right)
+  (fun h => h.elim (fun zsx zsy => Class.classify.mpr ⟨Ensemble.intro zsx, ⟨zsx, zsy⟩⟩))
 
 def Inter.split : z ∈ x ∩ y → (z ∈ x) ∧ (z ∈ y) := Iff.mp Inter.dist
 def Inter.intro : (z ∈ x) ∧ (z ∈ y) → z ∈ x ∩ y := Iff.mpr Inter.dist
@@ -79,12 +74,10 @@ theorem Inter.assoc_eq : (x ∩ y) ∩ z = x ∩ (y ∩ z) := Class.eq fun _ => 
   (fun h => have ⟨wsx, wsyoz⟩ := Inter.split h
     Union.intro
     ((Union.split wsyoz).elim (fun wsy => Or.inl (Inter.intro ⟨wsx, wsy⟩))
-    (fun wsz => Or.inr (Inter.intro ⟨wsx, wsz⟩)))
-  )
+    (fun wsz => Or.inr (Inter.intro ⟨wsx, wsz⟩))))
   (fun h => Or.elim (Union.split h)
     (fun h => have ⟨wsx, wsy⟩ := Inter.split h; Inter.intro ⟨wsx, Union.intro (Or.inl wsy)⟩)
-    (fun h => have ⟨wsx, wsz⟩ := Inter.split h; Inter.intro ⟨wsx, Union.intro (Or.inr wsz)⟩)    
-  )
+    (fun h => have ⟨wsx, wsz⟩ := Inter.split h; Inter.intro ⟨wsx, Union.intro (Or.inr wsz)⟩))
 theorem Inter.dist_union_eq : x ∩ (y ∪ z) = (x ∩ y) ∪ (x ∩ z) := Class.eq fun _ => Inter.dist_union
 
 def Inter.unfold_union : w ∈ x ∩ (y ∪ z) → w ∈ (x ∩ y) ∪ (x ∩ z) := Iff.mp Inter.dist_union
@@ -103,57 +96,55 @@ theorem Union.dist_inter_eq : x ∪ (y ∩ z) = (x ∪ y) ∩ (x ∪ z) := Class
 def Union.unfold_inter : w ∈ x ∪ (y ∩ z) → w ∈ (x ∪ y) ∩ (x ∪ z) := Iff.mp Union.dist_inter
 def Inter.fold_union : w ∈ (x ∪ y) ∩ (x ∪ z) → w ∈ x ∪ (y ∩ z):= Iff.mpr Union.dist_inter
 
-abbrev complement_classifier (x y : Class) := y ∉ x
-
 noncomputable instance : Complement Class where
-  complement x := Classify (complement_classifier x)
+  complement x := Classify fun y => y ∉ x
 
 @[simp] theorem Complement.compl_compl : y ∈ ~~~(~~~x) ↔ y ∈ x := Iff.intro
   (fun h =>
-    have ⟨ensy, (h1 : y ∉ ~~~x)⟩ := (Class.classify y (complement_classifier (~~~x))).mp h
-    Classical.byContradiction fun fake : y ∉ x => h1 ((Class.classify y (complement_classifier x)).mpr ⟨ensy, fake⟩))
+    have ⟨ensy, (h1 : y ∉ ~~~x)⟩ := Class.classify.mp h
+    Classical.byContradiction fun fake : y ∉ x => h1 (Class.classify.mpr ⟨ensy, fake⟩))
   (fun h =>
     have h1 : y ∉ ~~~x := Classical.byContradiction fun fake : ¬¬ y ∈ ~~~x =>
       have fake : y ∈ ~~~x := Classical.not_not.mp fake
-      have ⟨_, (h2 : y ∉ x)⟩ := (Class.classify y (complement_classifier x)).mp fake
+      have ⟨_, (h2 : y ∉ x)⟩ := Class.classify.mp fake
       h2 h;
     Classical.byContradiction fun fake : y ∉ ~~~(~~~x) =>
       have ensy : Ensemble y := ⟨x, h⟩
-      fake ((Class.classify y (complement_classifier (~~~x))).mpr ⟨ensy, h1⟩))
+      fake (Class.classify.mpr ⟨ensy, h1⟩))
 theorem Complement.compl_compl_eq : ~~~(~~~x) = x := Class.eq fun _ => Complement.compl_compl
 
 def Complement.reduce : y ∈ ~~~(~~~x) → y ∈ x := Iff.mp Complement.compl_compl
 
 @[simp] theorem Union.de_morgan : z ∈ ~~~(x ∪ y) ↔ z ∈ ~~~x ∩ ~~~y := Iff.intro
   (fun h =>
-    have ⟨ensz, (h1 : z ∉ x ∪ y)⟩ := (Class.classify z (complement_classifier (x ∪ y))).mp h
+    have ⟨ensz, (h1 : z ∉ x ∪ y)⟩ := Class.classify.mp h
     have ⟨(znx : z ∉ x), (zny : z ∉ y)⟩ := not_or.mp (Not.imp h1 Union.intro)
-    Inter.intro ⟨(Class.classify z (complement_classifier x)).mpr ⟨ensz, znx⟩, (Class.classify z (complement_classifier y)).mpr ⟨ensz, zny⟩⟩)
+    Inter.intro ⟨Class.classify.mpr ⟨ensz, znx⟩, Class.classify.mpr ⟨ensz, zny⟩⟩)
   (fun h =>
     have ⟨zcx, zcy⟩ := Inter.split h
-    have ⟨ensz, znx⟩ := (Class.classify z (complement_classifier x)).mp zcx
-    have h1 := not_or.mpr ⟨znx, And.right ((Class.classify z (complement_classifier y)).mp zcy)⟩
+    have ⟨ensz, znx⟩ := Class.classify.mp zcx
+    have h1 := not_or.mpr ⟨znx, And.right (Class.classify.mp zcy)⟩
     have h2 : z ∉ x ∪ y := Not.intro fun fake => h1 (Union.split fake)
-    (Class.classify z (complement_classifier (x ∪ y))).mpr ⟨ensz, h2⟩)
+    Class.classify.mpr ⟨ensz, h2⟩)
 theorem Union.de_morgan_eq : ~~~(x ∪ y) = ~~~x ∩ ~~~y := Class.eq fun _ => Union.de_morgan 
 
 @[simp] theorem Inter.de_morgan : z ∈ ~~~(x ∩ y) ↔ z ∈ ~~~x ∪ ~~~y := Iff.intro
   (fun h =>
-    have ⟨ensz, (h1 : z ∉ x ∩ y)⟩ := (Class.classify z (complement_classifier (x ∩ y))).mp h
+    have ⟨ensz, (h1 : z ∉ x ∩ y)⟩ := Class.classify.mp h
     Union.intro (Or.imp 
-      (fun h2 => (Class.classify z (complement_classifier x)).mpr ⟨ensz, h2⟩)
-      (fun h2 => (Class.classify z (complement_classifier y)).mpr ⟨ensz, h2⟩)
+      (fun h2 => Class.classify.mpr ⟨ensz, h2⟩)
+      (fun h2 => Class.classify.mpr ⟨ensz, h2⟩)
       (Classical.not_and_iff_not_or_not.mp (Not.imp h1 Inter.intro))
     ))
   (fun h =>
     have h1 := Or.imp
-      (fun c => (Class.classify z (complement_classifier x)).mp c)
-      (fun c => (Class.classify z (complement_classifier y)).mp c)
+      (fun c => Class.classify.mp c)
+      (fun c => Class.classify.mp c)
       (Union.split h)
     have h2 : z ∉ x ∩ y := Classical.byContradiction fun fake =>
       have ⟨zsx, zsy⟩ := Inter.split (Classical.not_not.mp fake)
       match h1 with
       | Or.inl ⟨_, znx⟩ => znx zsx
       | Or.inr ⟨_, zny⟩ => zny zsy
-    (Class.classify z (complement_classifier (x ∩ y))).mpr ⟨⟨(~~~x ∪ ~~~y), h⟩, h2⟩)
+    Class.classify.mpr ⟨⟨(~~~x ∪ ~~~y), h⟩, h2⟩)
 theorem Inter.de_morgan_eq : ~~~(x ∩ y) = ~~~x ∪ ~~~y := Class.eq fun _ => Inter.de_morgan
