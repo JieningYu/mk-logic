@@ -126,7 +126,7 @@ def Complement.reduce : y ∈ ~~~(~~~x) → y ∈ x := Iff.mp Complement.compl_c
     have h1 := not_or.mpr ⟨znx, And.right (Class.classify.mp zcy)⟩
     have h2 : z ∉ x ∪ y := Not.intro fun fake => h1 (Union.split fake)
     Class.classify.mpr ⟨ensz, h2⟩)
-theorem Union.de_morgan_eq : ~~~(x ∪ y) = ~~~x ∩ ~~~y := Class.eq fun _ => Union.de_morgan 
+theorem Union.de_morgan_eq : ~~~(x ∪ y) = ~~~x ∩ ~~~y := Class.eq fun _ => Union.de_morgan
 
 @[simp] theorem Inter.de_morgan : z ∈ ~~~(x ∩ y) ↔ z ∈ ~~~x ∪ ~~~y := Iff.intro
   (fun h =>
@@ -148,3 +148,32 @@ theorem Union.de_morgan_eq : ~~~(x ∪ y) = ~~~x ∩ ~~~y := Class.eq fun _ => U
       | Or.inr ⟨_, zny⟩ => zny zsy
     Class.classify.mpr ⟨⟨(~~~x ∪ ~~~y), h⟩, h2⟩)
 theorem Inter.de_morgan_eq : ~~~(x ∩ y) = ~~~x ∪ ~~~y := Class.eq fun _ => Inter.de_morgan
+
+noncomputable instance : Sub Class where
+  sub (x y) := x ∩ ~~~y
+
+theorem Sub.intro : z ∈ x → z ∉ y → z ∈ x - y := fun h1 h2 =>
+  Inter.intro ⟨h1, Class.classify.mpr ⟨⟨x, h1⟩, h2⟩⟩
+
+theorem Sub.split : z ∈ x - y → z ∈ x ∧ z ∉ y := fun h =>
+  And.imp_right (fun h1 => And.right (Class.classify.mp h1)) (Inter.split h)
+
+@[simp] theorem Sub.iff_and : z ∈ x - y ↔ z ∈ x ∧ z ∉ y :=
+  Iff.intro Sub.split fun h => Sub.intro h.left h.right
+
+@[simp,symm] theorem Sub.inter_assoc : w ∈ x ∩ (y - z) ↔ w ∈ (x ∩ y) - z := Inter.assoc.symm
+theorem Sub.inter_assoc_eq : x ∩ (y - z) = (x ∩ y) - z := Class.eq fun _ => Sub.inter_assoc
+
+noncomputable abbrev Φ := Classify fun x => x ≠ x
+
+theorem Class.not_in_empty : x ∉ Φ := Not.intro fun fake => (Class.classify.mp fake).right rfl
+
+@[simp] theorem Union.elim_empty : y ∈ Φ ∪ x ↔ y ∈ x := Iff.intro
+  (fun h => Or.resolve_left (Union.split h) Class.not_in_empty)
+  (fun h => Union.intro (Or.inr h))
+theorem Union.elim_empty_eq : Φ ∪ x = x := Class.eq fun _ => Union.elim_empty
+
+@[simp] theorem Inter.elim_empty : y ∈ Φ ∩ x ↔ y ∈ Φ := Iff.intro
+  (fun h => And.left (Inter.split h))
+  (fun h => Classical.byContradiction fun _ => Class.not_in_empty h)
+theorem Inter.elim_empty_eq : Φ ∩ x = Φ := Class.eq fun _ => Inter.elim_empty
