@@ -178,7 +178,7 @@ theorem Union.elim_empty_eq : Φ ∪ x = x := Class.eq fun _ => Union.elim_empty
 
 @[simp] theorem Inter.elim_empty : y ∈ Φ ∩ x ↔ y ∈ Φ := Iff.intro
   (fun h => And.left (Inter.split h))
-  (fun h => (Class.not_in_empty h).elim)
+  (fun h => Class.not_in_empty.elim h)
 theorem Inter.elim_empty_eq : Φ ∩ x = Φ := Class.eq fun _ => Inter.elim_empty
 
 noncomputable def μ := Classify fun x => x = x
@@ -203,8 +203,8 @@ theorem complete_compl_empty : x ∈ μ ↔ x ∈ ~~~Φ := Iff.intro
 theorem complete_compl_empty_eq : μ = ~~~Φ := Class.eq fun _ => complete_compl_empty
 
 theorem empty_compl_complete : x ∈ Φ ↔ x ∈ ~~~μ := Iff.intro
-  (fun h => (Class.not_in_empty h).elim)
-  (fun h => have ⟨ensx, not⟩ := Class.classify.mp h; (not (Class.in_complete.mpr ensx)).elim)
+  (fun h => Class.not_in_empty.elim h)
+  (fun h => have ⟨ensx, not⟩ := Class.classify.mp h; not.elim (Class.in_complete.mpr ensx))
 theorem empty_compl_complete_eq : Φ = ~~~μ := Class.eq fun _ => empty_compl_complete
 
 noncomputable def SInter (x : Class) := Classify fun z => ∀ y, y ∈ x → z ∈ y
@@ -212,18 +212,18 @@ noncomputable def SUnion (x : Class) := Classify fun z => ∃ y, z ∈ y ∧ y �
 
 @[simp] theorem sinter_empty_is_complete : x ∈ SInter Φ ↔ x ∈ μ := Iff.intro
   (fun h => Class.in_complete.mpr ⟨SInter Φ, h⟩)
-  (fun h => Class.classify.mpr ⟨⟨μ, h⟩, fun _ fake => (Class.not_in_empty fake).elim⟩)
+  (fun h => Class.classify.mpr ⟨⟨μ, h⟩, fun _ fake => Class.not_in_empty.elim fake⟩)
 theorem sinter_empty_is_complete_eq : SInter Φ = μ := Class.eq fun _ => sinter_empty_is_complete
 
 @[simp] theorem sunion_empty_is_empty : x ∈ SUnion Φ ↔ x ∈ Φ := Iff.intro
-  (fun h => have ⟨_, ⟨_, h1⟩⟩ := Class.classify.mp h; (Class.not_in_empty h1.right).elim)
-  (fun h => (Class.not_in_empty h).elim)
+  (fun h => have ⟨_, ⟨_, h1⟩⟩ := Class.classify.mp h; Not.elim Class.not_in_empty h1.right)
+  (fun h => Class.not_in_empty.elim h)
 theorem sunion_empty_is_empty_eq : SUnion Φ = Φ := Class.eq fun _ => sunion_empty_is_empty
 
 instance : HasSubset Class where
   Subset x y := ∀ z, z ∈ x → z ∈ y
 
-@[simp] theorem empty_is_subset : Φ ⊆ x := fun _ h => (Class.not_in_empty h).elim
+@[simp] theorem empty_is_subset : Φ ⊆ x := fun _ h => Class.not_in_empty.elim h
 @[simp] theorem complete_is_superset : x ⊆ μ := fun _ h => Class.in_complete.mpr ⟨x, h⟩
 @[refl, simp] theorem subset_rfl : x ⊆ x := fun _ => id 
 
@@ -237,29 +237,157 @@ instance : HasSubset Class where
 @[simp] theorem subset_trans : x ⊆ y → y ⊆ z → x ⊆ z := fun h1 h2 w zsx => h2 w (h1 w zsx)
 
 @[simp] theorem union_absorb_subset : x ∪ y = y ↔ x ⊆ y := Iff.intro
-  (fun h => by rw[←h]; simp)
+  (fun h => by rw[← h]; simp)
   (fun h => Class.eq fun z => Iff.intro
     (fun zsxy => (Union.split zsxy).elim (fun zsx => h z zsx) id)
     (fun zsy => Union.intro (Or.inr zsy)))
 @[simp] theorem inter_absorb_subset : x ∩ y = x ↔ x ⊆ y := Iff.intro
-  (fun h => by rw[←h]; rw[Inter.comm_eq]; simp)
+  (fun h => by rw[← h]; rw[Inter.comm_eq]; simp)
   (fun h => Class.eq fun z => Iff.intro
     (fun zsxy => And.left (Inter.split zsxy))
     (fun zsx => Inter.intro ⟨zsx, h z zsx⟩))
 
-theorem union_monotone : x ⊆ y → SUnion x ⊆ SUnion y := fun h _ zsux =>
+theorem sunion_monotone : x ⊆ y → SUnion x ⊆ SUnion y := fun h _ zsux =>
   have ⟨ensz, ⟨w, ⟨zsw, wsx⟩⟩⟩ := Class.classify.mp zsux
   Class.classify.mpr ⟨ensz, ⟨w, ⟨zsw, h w wsx⟩⟩⟩
-theorem inter_monotone : x ⊆ y → SInter y ⊆ SInter x := fun h _ zsiy =>
+theorem sinter_monotone : x ⊆ y → SInter y ⊆ SInter x := fun h _ zsiy =>
   have ⟨ensz, h1⟩ := Class.classify.mp zsiy
   Class.classify.mpr ⟨ensz, fun w wsx => have wsy := h w wsx; h1 w wsy⟩
 
-theorem union_monotone_mem : x ∈ y → x ⊆ SUnion y := fun xsy _ zsx  =>
+theorem sunion_monotone_mem : x ∈ y → x ⊆ SUnion y := fun xsy _ zsx  =>
   Class.classify.mpr ⟨⟨x, zsx⟩, ⟨x, ⟨zsx, xsy⟩⟩⟩
-theorem inter_monotone_mem : x ∈ y → SInter y ⊆ x := fun xsy _ zsiy =>
+theorem sinter_monotone_mem : x ∈ y → SInter y ⊆ x := fun xsy _ zsiy =>
   And.right (Class.classify.mp zsiy) x xsy
 
-noncomputable def pow (x : Class) := Classify fun y => y ⊆ x
+axiom Class.subsets : ∀ {x}, Ensemble x → ∃ y, Ensemble y ∧ (∀ z, z ⊆ x -> z ∈ y)
 
--- axiom Class.subsets : ∀ x, Ensemble x → ∃ y, Ensemble y ∧ pow x ⊆ y
-axiom Class.subsets : ∀ x, Ensemble x → ∃ y, Ensemble y ∧ (∀ z, z ⊆ x -> z ∈ y)
+theorem Ensemble.recursive : Ensemble x → ∃ y, Ensemble y ∧ x ∈ y := fun h =>
+  have ⟨y, ⟨ensy, h1⟩⟩ := (Class.subsets h)
+  ⟨y, ⟨ensy, h1 x subset_rfl⟩⟩
+
+@[simp] theorem Ensemble.mp : Ensemble x → y ⊆ x → Ensemble y := fun ensx h =>
+  have ⟨z, ⟨_, h1⟩⟩ := Class.subsets ensx
+  ⟨z, h1 y h⟩
+
+@[simp] theorem sinter_complete_is_empty : x ∈ SInter μ ↔ x ∈ Φ := Iff.intro
+  (fun h =>
+    have ⟨ensx, h1⟩ := Class.classify.mp h
+    have h2 := Ensemble.mp ensx empty_is_subset
+    h1 Φ (Class.in_complete.mpr h2))
+  (fun h =>(Class.not_in_empty h).elim)
+theorem sinter_complete_is_empty_eq : SInter μ = Φ := Class.eq fun _ => sinter_complete_is_empty
+
+@[simp] theorem sunion_complete_is_complete : x ∈ SUnion μ ↔ x ∈ μ := Iff.intro
+  (fun h =>
+    have ⟨_, ⟨y, xsy, _⟩⟩ := Class.classify.mp h
+    Class.in_complete.mpr ⟨y, xsy⟩)
+  (fun h =>
+    have ensx := Class.in_complete.mp h
+    have ⟨y, ⟨ensy, xsy⟩⟩ := Ensemble.recursive ensx
+    Class.classify.mpr ⟨ensx, ⟨y, ⟨xsy, Class.in_complete.mpr ensy⟩⟩⟩)
+theorem sunion_complete_is_complete_eq : SUnion μ = μ := Class.eq fun _ => sunion_complete_is_complete
+
+theorem Class.sib_exist_non_empty : x ≠ Φ ↔ ∃ y, y ∈ x := Iff.intro
+  (fun h => Classical.byContradiction fun fake =>
+    h (Class.eq fun z => Iff.intro
+      (fun h1 => (not_exists.mp fake z h1).elim)
+      (fun h1 => (Class.not_in_empty h1).elim)) )
+  (fun ⟨y, ysx⟩ => Not.intro fun fake =>
+    have fake1 : y ∈ Φ := by rw[fake] at ysx; exact ysx
+    Class.not_in_empty fake1)
+
+theorem sinter_ens_non_empty : x ≠ Φ → Ensemble (SInter x) := fun h =>
+  have ⟨_, ysx⟩ := Class.sib_exist_non_empty.mp h
+  Ensemble.mp (Ensemble.intro ysx) (sinter_monotone_mem ysx)
+
+noncomputable def Power (x : Class) := Classify fun y => y ⊆ x
+noncomputable abbrev pow := Power
+
+@[simp] theorem complete_power_rfl : x ∈ μ ↔ x ∈ pow μ := Iff.intro
+  (fun h => Class.classify.mpr ⟨Class.in_complete.mp h, complete_is_superset⟩)
+  (fun h => have ⟨ensx, _⟩ := Class.classify.mp h; Class.in_complete.mpr ensx)
+theorem complete_power_rfl_eq : μ = pow μ := Class.eq fun _ => complete_power_rfl
+
+@[simp] theorem Ensemble.map_pow : Ensemble x → Ensemble (pow x) := fun ensx =>
+  have ⟨_, ⟨ensy, h⟩⟩ := Class.subsets ensx
+  Ensemble.mp ensy fun z zpx => have ⟨_, zssx⟩ := Class.classify.mp zpx; h z zssx
+
+@[simp] theorem Class.subsets_pow : Ensemble x → ∀ y, y ⊆ x ↔ y ∈ pow x := fun ensx _ => Iff.intro
+  (fun h => Class.classify.mpr ⟨Ensemble.mp ensx h, h⟩)
+  (fun h => have ans := And.right (Class.classify.mp h); ans)
+
+theorem Class.in_pow : Ensemble x → x ∈ pow x := fun h =>
+  Class.classify.mpr ⟨h, subset_rfl⟩
+
+noncomputable def Nens := Classify fun x => x ∉ x
+
+theorem Nens.nens : ¬Ensemble Nens := fun ensn => Classical.byCases
+  (fun h : Nens ∈ Nens => have ⟨_, h1⟩ := Class.classify.mp h; h1 h)
+  (fun h : Nens ∉ Nens => h (Class.classify.mpr ⟨ensn, h⟩))
+
+theorem complete_nens : ¬Ensemble μ := fun ensm =>
+  Nens.nens (Ensemble.mp ensm complete_is_superset)
+
+noncomputable instance : Singleton Class Class where
+  singleton x := Classify fun y => x ∈ μ → y = x
+
+noncomputable abbrev singleton (x : Class) : Class := { x }
+
+@[simp] theorem Class.in_singleton : Ensemble x → x ∈ singleton x := fun ensx =>
+  Class.classify.mpr ⟨ensx, fun _ => rfl⟩
+
+theorem singleton_mp : x ∈ singleton y → y = z → x ∈ singleton z := fun h eq =>
+  by rw[← eq]; exact h
+
+theorem singleton_mpr : Ensemble x → y ∈ singleton x ∧ z ∈ singleton x → y = z := fun ensx ⟨h1, h2⟩ =>
+  have ⟨ensy, h1⟩ := Class.classify.mp h1
+  have ⟨ensz, h2⟩ := Class.classify.mp h2
+  by simp[h1, h2, Class.in_complete.mpr ensx]
+theorem singleton_smpr : Ensemble x → y ∈ singleton x → x = y := fun ensx h =>
+  singleton_mpr ensx ⟨Class.in_singleton ensx, h⟩
+
+@[simp] theorem singleton_subset_pow : Ensemble x → {x} ⊆ pow x := fun ensx y h =>
+  have h1 := singleton_smpr ensx h
+  by simp[h1]; rw[← h1]; exact Class.in_pow ensx
+
+theorem Ensemble.map_singleton : Ensemble x → Ensemble {x} := fun ensx =>
+  Ensemble.mp (Ensemble.map_pow ensx) (singleton_subset_pow ensx)
+
+@[simp] theorem nens_singleton_x_is_complete : {x} = μ ↔ ¬Ensemble x := Iff.intro
+  (fun h => complete_nens.imp fun ensx =>
+    have h1 := Ensemble.map_singleton ensx
+    by rw[h] at h1; exact h1)
+  (fun h => Class.eq fun y => Iff.intro
+    (fun h1 => complete_is_superset y h1)
+    (fun h1 => have ensy := Class.in_complete.mp h1
+      Class.classify.mpr ⟨ensy, fun fake => h.elim (Class.in_complete.mp fake)⟩))
+
+theorem Ensemble.mapr_singleton : Ensemble {x} → Ensemble x := fun h => Classical.byContradiction fun fake =>
+  have eq := nens_singleton_x_is_complete.mpr fake
+  by rw[eq] at h; exact complete_nens h 
+
+@[simp] theorem Ensemble.iff_singleton : Ensemble x ↔ Ensemble {x} := Iff.intro Ensemble.map_singleton Ensemble.mapr_singleton
+
+theorem sinter_singleton_rfl : Ensemble x → SInter {x} = x := fun h => Class.eq fun y => Iff.intro
+  (fun h1 =>
+    have ⟨ensy, h2⟩ := Class.classify.mp h1
+    h2 x (Class.in_singleton h))
+  (fun h1 => Class.classify.mpr ⟨⟨x, h1⟩, fun z h2 =>
+    have ⟨ensz, h3⟩ := Class.classify.mp h2
+    have h3 := h3 (Class.in_complete.mpr h)
+    by rw[← h3] at h1; exact h1⟩)
+
+theorem sunion_singleton_rfl : Ensemble x → SUnion {x} = x := fun h => Class.eq fun y => Iff.intro
+  (fun h1 =>
+    have ⟨ensy, ⟨z, ⟨h2, h3⟩⟩⟩ := Class.classify.mp h1
+    have h4 := singleton_smpr h h3
+    by rw[← h4] at h2; exact h2)
+  (fun h1 => Class.classify.mpr ⟨⟨x, h1⟩, ⟨x, ⟨h1, Class.in_singleton h⟩⟩⟩)
+
+theorem nens_sinter_singleton : ¬Ensemble x → SInter {x} = Φ := fun h =>
+  have h1 := nens_singleton_x_is_complete.mpr h
+  by rw[h1]; apply sinter_complete_is_empty_eq
+
+theorem nens_sunion_singleton : ¬Ensemble x → SUnion {x} = μ := fun h =>
+  have h1 := nens_singleton_x_is_complete.mpr h
+  by rw[h1]; apply sunion_complete_is_complete_eq
