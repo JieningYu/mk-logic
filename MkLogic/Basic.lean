@@ -189,11 +189,11 @@ theorem Union.elim_empty_eq : Φ ∪ x = x := Class.eq fun _ => Union.elim_empty
   (fun h => Class.not_in_empty.elim h)
 theorem Inter.elim_empty_eq : Φ ∩ x = Φ := Class.eq fun _ => Inter.elim_empty
 
-noncomputable def μ := Classify fun x => x = x
+noncomputable def μ := Classify fun _ => True
 
 theorem Class.in_complete : x ∈ μ ↔ Ensemble x := Iff.intro
   (fun h => And.left (Class.classify.mp h))
-  (fun h => Class.classify.mpr ⟨h, rfl⟩)
+  (fun h => Class.classify.mpr ⟨h, trivial⟩)
 
 @[simp] theorem Union.elim_complete : y ∈ x ∪ μ ↔ y ∈ μ := Iff.intro
   (fun h => Class.in_complete.mpr ⟨x ∪ μ, h⟩)
