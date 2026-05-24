@@ -488,6 +488,9 @@ theorem Ensemble.unwrap_ordered : Ensemble (x, y) → Ensemble x ∧ Ensemble y 
 theorem Ensemble.unwrap_ordered_l : Ensemble (x, y) → Ensemble x := fun h => And.left (Ensemble.unwrap_ordered h)
 theorem Ensemble.unwrap_ordered_r : Ensemble (x, y) → Ensemble y := fun h => And.right (Ensemble.unwrap_ordered h)
 
+theorem Ensemble.swap_ordered : Ensemble (x, y) → Ensemble (y, x) := fun ens =>
+  Ensemble.map_ordered (Ensemble.unwrap_ordered_r ens) (Ensemble.unwrap_ordered_l ens)
+
 @[simp] theorem Ensemble.map_ordered_iff : Ensemble x ∧ Ensemble y ↔ Ensemble (x, y) := Iff.intro
   (fun ⟨h1, h2⟩ => Ensemble.map_ordered h1 h2) Ensemble.unwrap_ordered
 
@@ -567,11 +570,6 @@ theorem ordered_rfl : Ensemble x ∧ Ensemble y → ((x, y) = (u, v) ↔ x = u �
     ⟨hx, hy⟩)
   fun ⟨h1, h2⟩ => by rw[h1, h2]
 
-theorem pins {a b c d : Class} : Ensemble c ∧ Ensemble d → (a, b) ∈ ({(c, d)} : Class) → a = c ∧ b = d := fun ⟨ensc, ensd⟩ h =>
-  have eq := singleton_eq (Ensemble.map_ordered ensc ensd) h
-  have h1 := (ordered_rfl ⟨ensc, ensd⟩).mp eq.symm
-  h1.imp Eq.symm Eq.symm
-
 def Relation (r : Class) := ∀ z, z ∈ r → ∃ x y, z = (x, y)
 
 noncomputable abbrev PairedClassify : (Class → Class → Prop) → Class := fun p =>
@@ -582,6 +580,11 @@ theorem PairedClassify.relative {P : Class → Class → Prop} : Relation (Paire
 
 theorem Relation.map_union : Relation x → Relation y → Relation (x ∪ y) := fun rx ry z h =>
   (Union.split h).elim (fun h => rx z h) (fun h => ry z h)
+theorem Relation.map_inter : Relation x → Relation (x ∩ y) := fun r z h => r z (And.left (Inter.split h))
+theorem Relation.map_inter' : Relation y → Relation (x ∩ y) := fun r z h => r z (And.right (Inter.split h))
+
+theorem singleton_relative : Ensemble a → Ensemble b → Relation {(a, b)} := fun ensa ensb _ h =>
+  ⟨a, ⟨b, singleton_eq (Ensemble.map_ordered ensa ensb) h⟩⟩
 
 @[simp] theorem Class.paired_classify {P : Class → Class → Prop} : (x, y) ∈ PairedClassify P ↔ Ensemble (x, y) ∧ P x y := Iff.intro
   (fun h =>
@@ -599,7 +602,7 @@ noncomputable def Composition (r s : Class) := PairedClassify fun x z => ∃ y, 
 
 infixr:90 " ∘ "  => Composition
 
-variable {a b f r s t : Class}
+variable {a b r s t : Class}
 
 theorem Composition.assoc : (x, y) ∈ (r ∘ s) ∘ t → (x, y) ∈ r ∘ (s ∘ t) := fun h =>
   have ⟨ensxy, ⟨z, ⟨h1, h'⟩⟩⟩ := Class.paired_classify.mp h
@@ -632,6 +635,79 @@ theorem Composition.merge_union : (x, y) ∈ (r ∘ s) ∪ (r ∘ t) → (x, y) 
     have ⟨ensxy, ⟨z, ⟨h1, h2⟩⟩⟩ := Class.paired_classify.mp h
     Class.paired_classify.mpr ⟨ensxy, ⟨z, ⟨Union.intro (Or.inr h1), h2⟩⟩⟩)
 
-theorem Composition.dist_union_eq : r ∘ (s ∪ t) = (r ∘ s) ∪ (r ∘ t) := Class.paired_eq
+@[simp] theorem Composition.dist_union_eq : r ∘ (s ∪ t) = (r ∘ s) ∪ (r ∘ t) := Class.paired_eq
   PairedClassify.relative (Relation.map_union PairedClassify.relative PairedClassify.relative)
   fun _ _ => Iff.intro Composition.split_union Composition.merge_union
+
+theorem Composition.dist_inter_ss : r ∘ (s ∩ t) ⊆ (r ∘ s) ∩ (r ∘ t) := fun z h => by
+  have ⟨x, ⟨y, eq⟩⟩ := PairedClassify.relative z h; rw[eq]; rw[eq] at h;
+  have ⟨ensxy, ⟨z, ⟨h', h2⟩⟩⟩ := Class.paired_classify.mp h; have ⟨h3, h4⟩ := Inter.split h'
+  exact Inter.intro ⟨Class.paired_classify.mpr ⟨ensxy, ⟨z, ⟨h3, h2⟩⟩⟩, Class.paired_classify.mpr ⟨ensxy, ⟨z, ⟨h4, h2⟩⟩⟩⟩
+
+noncomputable instance : Inv Class where
+  inv r := PairedClassify fun x y => (y, x) ∈ r
+
+variable {f : Class}
+
+@[simp] theorem inv_iff : (a, b) ∈ f ↔ (b, a) ∈ f⁻¹ := Iff.intro
+  (fun h => Class.paired_classify.mpr ⟨Ensemble.swap_ordered (Ensemble.intro h), h⟩)
+  (fun h => have ⟨_, h1⟩ := Class.paired_classify.mp h; h1)
+
+theorem inv_map_union : (x, y) ∈ a⁻¹ ∪ b⁻¹ → (x, y) ∈ (a ∪ b)⁻¹ := fun h =>
+  Class.paired_classify.mpr ⟨Ensemble.intro h, Union.intro ((Union.split h).imp inv_iff.mpr inv_iff.mpr)⟩
+
+theorem inv_unwrap_union : (x, y) ∈ (a ∪ b)⁻¹ → (x, y) ∈ a⁻¹ ∪ b⁻¹ := fun h =>
+  have ⟨_, h1⟩ := Class.paired_classify.mp h
+  Union.intro ((Union.split h1).imp inv_iff.mp inv_iff.mp)
+
+@[simp] theorem inv_dist_union_eq : a⁻¹ ∪ b⁻¹ = (a ∪ b)⁻¹ := Class.paired_eq
+  (Relation.map_union PairedClassify.relative PairedClassify.relative) PairedClassify.relative
+  fun _ _ => Iff.intro inv_map_union inv_unwrap_union
+
+theorem inv_map_inter : (x, y) ∈ a⁻¹ ∩ b⁻¹ → (x, y) ∈ (a ∩ b)⁻¹ := fun h =>
+  have h1 := Inter.split h
+  Class.paired_classify.mpr ⟨Ensemble.intro h, Inter.intro (h1.imp inv_iff.mpr inv_iff.mpr)⟩
+
+theorem inv_unwrap_inter : (x, y) ∈ (a ∩ b)⁻¹ → (x, y) ∈ a⁻¹ ∩ b⁻¹ := fun h =>
+  have ⟨_, h1⟩ := Class.paired_classify.mp h;
+  Inter.intro ((Inter.split h1).imp inv_iff.mp inv_iff.mp)
+
+@[simp] theorem inv_dist_inter_eq : a⁻¹ ∩ b⁻¹ = (a ∩ b)⁻¹ := Class.paired_eq
+  (Relation.map_inter PairedClassify.relative) PairedClassify.relative
+  fun _ _ => Iff.intro inv_map_inter inv_unwrap_inter
+
+@[simp] theorem inv_in_singleton : Ensemble a → Ensemble b → {(a, b)}⁻¹ = ({(b, a)} : Class) := fun ensa ensb => Class.paired_eq
+  PairedClassify.relative (singleton_relative ensb ensa)
+  fun x y => Iff.intro
+    (fun h => by
+      have ⟨ens, h1⟩ := Class.paired_classify.mp h
+      have ⟨eq0, eq1⟩ := (ordered_rfl (Ensemble.unwrap_ordered ens).symm).mp (singleton_eq (Ensemble.map_ordered ensa ensb) h1)
+      rw[eq0, eq1]; exact Class.in_singleton (Ensemble.map_ordered ensb ensa))
+    (fun h => by
+      have h1 := singleton_eq (Ensemble.map_ordered ensb ensa) h
+      have ⟨eq0, eq1⟩ := (ordered_rfl ⟨ensb, ensa⟩).mp h1.symm
+      rw[eq0.symm, eq1.symm]; exact inv_iff.mp (Class.in_singleton (Ensemble.map_ordered ensa ensb)))
+
+@[simp] theorem inv_dupe_eq : Relation r → r⁻¹⁻¹ = r := fun rel => Class.paired_eq
+  PairedClassify.relative rel
+  fun x y => Iff.intro
+    (fun h => have ⟨_, h'⟩ := Class.paired_classify.mp h; have ⟨_, h1⟩ := Class.paired_classify.mp h'; h1)
+    (fun h => have ens := Ensemble.intro h;
+      have h1 : (y, x) ∈ r⁻¹ := Class.paired_classify.mpr ⟨ens.swap_ordered, h⟩
+      Class.paired_classify.mpr ⟨ens, h1⟩)
+
+theorem inv_elim_dupe : Relation r → (x, y) ∈ r⁻¹⁻¹ → (x, y) ∈ r := fun rel h => by rw[inv_dupe_eq rel] at h; exact h
+
+theorem inv_map_composition : (x, y) ∈ s⁻¹ ∘ r⁻¹ → (x, y) ∈ (r ∘ s)⁻¹ := fun h =>
+  have ⟨ens, ⟨z, ⟨h1, h2⟩⟩⟩ := Class.paired_classify.mp h
+  have ⟨_, h3⟩ := Class.paired_classify.mp h1; have ⟨_, h4⟩ := Class.paired_classify.mp h2
+  Class.paired_classify.mpr ⟨ens, Class.paired_classify.mpr ⟨ens.swap_ordered, ⟨z, ⟨h4, h3⟩⟩⟩⟩
+
+theorem inv_unwrap_composition : (x, y) ∈ (r ∘ s)⁻¹ → (x, y) ∈ s⁻¹ ∘ r⁻¹ := fun h =>
+  have ⟨ens, h1⟩ := Class.paired_classify.mp h
+  have ⟨_, ⟨z, h2⟩⟩ := Class.paired_classify.mp h1
+  Class.paired_classify.mpr ⟨ens, ⟨z, h2.symm.imp inv_iff.mp inv_iff.mp⟩⟩
+
+@[simp] theorem inv_composition_eq : s⁻¹ ∘ r⁻¹ = (r ∘ s)⁻¹ := Class.paired_eq
+  PairedClassify.relative PairedClassify.relative
+  fun _ _ => Iff.intro inv_map_composition inv_unwrap_composition
