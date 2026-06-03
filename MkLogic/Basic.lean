@@ -300,7 +300,7 @@ theorem sunion_complete_is_complete : x ∈ ∪μ ↔ x ∈ μ := Iff.intro
     Class.classify.mpr ⟨ensx, ⟨y, ⟨xsy, Class.in_complete.mpr ensy⟩⟩⟩)
 theorem sunion_complete_is_complete_eq : ∪μ = μ := Class.eq fun _ => sunion_complete_is_complete
 
-theorem Class.sib_exist_non_empty : x ≠ Φ ↔ ∃ y, y ∈ x := Iff.intro
+theorem sib_exist_non_empty : x ≠ Φ ↔ ∃ y, y ∈ x := Iff.intro
   (fun h => Classical.byContradiction fun fake =>
     h (Class.eq fun z => Iff.intro
       (fun h1 => (not_exists.mp fake z h1).elim)
@@ -310,7 +310,7 @@ theorem Class.sib_exist_non_empty : x ≠ Φ ↔ ∃ y, y ∈ x := Iff.intro
     Class.not_in_empty fake1)
 
 theorem sinter_ens_non_empty : x ≠ Φ → Ensemble (∩x) := fun h =>
-  have ⟨_, ysx⟩ := Class.sib_exist_non_empty.mp h
+  have ⟨_, ysx⟩ := sib_exist_non_empty.mp h
   Ensemble.mp (Ensemble.intro ysx) (sinter_monotone_mem ysx)
 
 noncomputable def Power (x : Class) := Classify fun y => y ⊆ x
@@ -346,12 +346,15 @@ noncomputable instance : Singleton Class Class where
 
 noncomputable abbrev singleton (x : Class) : Class := {x}
 
+theorem Class.in_singleton : Ensemble x → x ∈ singleton x := fun ensx =>
+  Class.classify.mpr ⟨ensx, fun _ => rfl⟩
+
 theorem singleton_eq : Ensemble y → x ∈ ({y} : Class) → x = y := fun ensy h =>
   have ⟨_, h1⟩ := Class.classify.mp h
   h1 (Class.in_complete.mpr ensy)
 
-theorem Class.in_singleton : Ensemble x → x ∈ singleton x := fun ensx =>
-  Class.classify.mpr ⟨ensx, fun _ => rfl⟩
+theorem singleton_eq' : Ensemble x → x = y → x ∈ ({y} : Class) := fun ex h => by
+  rw[← h]; exact Class.in_singleton ex
 
 theorem singleton_mp : x ∈ singleton y → y = z → x ∈ singleton z := fun h eq =>
   by rw[← eq]; exact h
@@ -570,6 +573,11 @@ theorem ordered_rfl : Ensemble x ∧ Ensemble y → ((x, y) = (u, v) ↔ x = u �
     ⟨hx, hy⟩)
   fun ⟨h1, h2⟩ => by rw[h1, h2]
 
+theorem singleton_ordered_rfl : Ensemble u → Ensemble v → (x, y) ∈ ({(u, v)} : Class) → x = u ∧ y = v := fun eu ev h =>
+  have ens := Ensemble.intro h; ((ordered_rfl (Ensemble.unwrap_ordered ens)).mp (singleton_eq (Ensemble.map_ordered eu ev) h))
+theorem singleton_ordered_rflr : Ensemble x → Ensemble y → x = u ∧ y = v → (x, y) ∈ ({(u, v)} : Class) := fun ensx ensy ⟨ex, ey⟩ => by
+  rw[ex.symm, ey.symm]; exact Class.in_singleton (Ensemble.map_ordered ensx ensy)
+
 def Relation (r : Class) := ∀ z, z ∈ r → ∃ x y, z = (x, y)
 
 noncomputable abbrev PairedClassify : (Class → Class → Prop) → Class := fun p =>
@@ -647,7 +655,7 @@ theorem Composition.dist_inter_ss : r ∘ (s ∩ t) ⊆ (r ∘ s) ∩ (r ∘ t) 
 noncomputable instance : Inv Class where
   inv r := PairedClassify fun x y => (y, x) ∈ r
 
-variable {f : Class}
+variable {f g : Class}
 
 theorem inv_iff : (a, b) ∈ f ↔ (b, a) ∈ f⁻¹ := Iff.intro
   (fun h => Class.paired_classify.mpr ⟨Ensemble.swap_ordered (Ensemble.intro h), h⟩)
@@ -688,7 +696,7 @@ theorem inv_in_singleton : Ensemble a → Ensemble b → {(a, b)}⁻¹ = ({(b, a
       have ⟨eq0, eq1⟩ := (ordered_rfl ⟨ensb, ensa⟩).mp h1.symm
       rw[eq0.symm, eq1.symm]; exact inv_iff.mp (Class.in_singleton (Ensemble.map_ordered ensa ensb)))
 
-theorem inv_dupe_eq : Relation r → r⁻¹⁻¹ = r := fun rel => Class.paired_eq
+theorem inv_elim_eq : Relation r → r⁻¹⁻¹ = r := fun rel => Class.paired_eq
   PairedClassify.relative rel
   fun x y => Iff.intro
     (fun h => have ⟨_, h'⟩ := Class.paired_classify.mp h; have ⟨_, h1⟩ := Class.paired_classify.mp h'; h1)
@@ -696,7 +704,7 @@ theorem inv_dupe_eq : Relation r → r⁻¹⁻¹ = r := fun rel => Class.paired_
       have h1 : (y, x) ∈ r⁻¹ := Class.paired_classify.mpr ⟨ens.swap_ordered, h⟩
       Class.paired_classify.mpr ⟨ens, h1⟩)
 
-theorem inv_elim_dupe : Relation r → (x, y) ∈ r⁻¹⁻¹ → (x, y) ∈ r := fun rel h => by rw[inv_dupe_eq rel] at h; exact h
+theorem inv_elim: Relation r → (x, y) ∈ r⁻¹⁻¹ → (x, y) ∈ r := fun rel h => by rw[inv_elim_eq rel] at h; exact h
 
 theorem inv_map_composition : (x, y) ∈ s⁻¹ ∘ r⁻¹ → (x, y) ∈ (r ∘ s)⁻¹ := fun h =>
   have ⟨ens, ⟨z, ⟨h1, h2⟩⟩⟩ := Class.paired_classify.mp h
@@ -714,4 +722,165 @@ theorem inv_composition_eq : s⁻¹ ∘ r⁻¹ = (r ∘ s)⁻¹ := Class.paired_
 
 def Function f := Relation f ∧ (∀ x y z, (x, y) ∈ f → (x, z) ∈ f → y = z)
 
+theorem Function.yeq : Function f → (x, y) ∈ f → (x, z) ∈ f → y = z := fun ff h1 h2 =>
+  ff.right x y z h1 h2
+theorem Function.inv_xeq : Function f⁻¹ → (x, y) ∈ f → (z, y) ∈ f → x = z := fun ff h1 h2 =>
+  ff.right y x z (inv_iff.mp h1) (inv_iff.mp h2)
 
+theorem singleton_functional : Ensemble a → Ensemble b → Function {(a, b)} := fun ensa ensb =>
+  ⟨singleton_relative ensa ensb, fun _ _ _ l r =>
+    have ⟨_, h2⟩ := (ordered_rfl ⟨ensa, ensb⟩).mp (singleton_eq (Ensemble.map_ordered ensa ensb) l).symm
+    have ⟨_, h3⟩ := (ordered_rfl ⟨ensa, ensb⟩).mp (singleton_eq (Ensemble.map_ordered ensa ensb) r).symm
+    Eq.trans h2.symm h3⟩
+
+theorem Function.map_composition : Function f → Function g → Function (f ∘ g) := fun ff fg =>
+  ⟨PairedClassify.relative, fun x y z l r => by
+    have ⟨ens, ⟨a, ⟨h1, h2⟩⟩⟩ := Class.paired_classify.mp l
+    have ⟨_, ⟨b, ⟨h3, h4⟩⟩⟩ := Class.paired_classify.mp r
+    have e := fg.right x a b h1 h3; rw[← e] at h4; 
+    exact ff.right a y z h2 h4⟩
+
+noncomputable def Domain (f : Class) := Classify fun x => ∃ y, (x, y) ∈ f
+noncomputable abbrev dom := Domain
+theorem Domain.intro : (x, y) ∈ f → x ∈ dom f := fun h =>
+  Class.classify.mpr ⟨(Ensemble.intro h).unwrap_ordered_l, ⟨y, h⟩⟩
+
+noncomputable def Range (f : Class) := Classify fun y => ∃ x, (x, y) ∈ f
+noncomputable abbrev ran := Range
+theorem Range.intro : (x, y) ∈ f → y ∈ ran f := fun h =>
+  Class.classify.mpr ⟨(Ensemble.intro h).unwrap_ordered_r, ⟨x, h⟩⟩
+
+theorem inv_ran_is_dom : x ∈ ran f⁻¹ → x ∈ dom f := fun h =>
+  have ⟨_, ⟨_, h1⟩⟩ := Class.classify.mp h; Domain.intro (inv_iff.mpr h1)
+theorem inv_dom_is_ran : x ∈ dom f⁻¹ → x ∈ ran f := fun h =>
+  have ⟨_, ⟨_, h1⟩⟩ := Class.classify.mp h; Range.intro (inv_iff.mpr h1)
+theorem ran_is_inv_dom : x ∈ ran f → x ∈ dom f⁻¹ := fun h =>
+  have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h; Class.classify.mpr ⟨Ensemble.intro h, ⟨y, inv_iff.mp h1⟩⟩
+theorem dom_is_inv_ran : x ∈ dom f → x ∈ ran f⁻¹ := fun h =>
+  have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h; Class.classify.mpr ⟨Ensemble.intro h, ⟨y, inv_iff.mp h1⟩⟩
+
+theorem dom_inv_ran_eq : dom f = ran f⁻¹ := Class.eq fun _ => (Iff.intro dom_is_inv_ran inv_ran_is_dom)
+theorem ran_inv_dom_eq : ran f = dom f⁻¹ := Class.eq fun _ => (Iff.intro ran_is_inv_dom inv_dom_is_ran)
+
+theorem subdomain : x ⊆ y → dom x ⊆ dom y := fun h1 z h2 =>
+  have ⟨_, ⟨w, h3⟩⟩ := Class.classify.mp h2; Domain.intro (h1 (z, w) h3)
+
+theorem Domain.map_union : x ∈ dom f ∪ dom g → x ∈ dom (f ∪ g) := fun h =>
+  Class.classify.mpr ⟨Ensemble.intro h, (Union.split h).elim
+    (fun h => have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h; ⟨y, Union.intro (Or.inl h1)⟩)
+    (fun h => have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h; ⟨y, Union.intro (Or.inr h1)⟩)⟩
+theorem Domain.unwrap_union : x ∈ dom (f ∪ g) → x ∈ dom f ∪ dom g := fun h =>
+  have ⟨_, ⟨_, h1⟩⟩ := Class.classify.mp h; (Union.intro ((Union.split h1).imp Domain.intro Domain.intro))
+theorem Domain.dist_union_eq : dom f ∪ dom g = dom (f ∪ g) := Class.eq fun _ => (Iff.intro Domain.map_union Domain.unwrap_union)
+
+theorem Range.map_union : x ∈ ran f ∪ ran g → x ∈ ran (f ∪ g) := fun h =>
+  Class.classify.mpr ⟨Ensemble.intro h, (Union.split h).elim
+    (fun h => have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h; ⟨y, Union.intro (Or.inl h1)⟩)
+    (fun h => have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h; ⟨y, Union.intro (Or.inr h1)⟩)⟩
+theorem Range.unwrap_union : x ∈ ran (f ∪ g) → x ∈ ran f ∪ ran g := fun h =>
+  have ⟨_, ⟨_, h1⟩⟩ := Class.classify.mp h; (Union.intro ((Union.split h1).imp Range.intro Range.intro))
+theorem Range.dist_union_eq : ran f ∪ ran g = ran (f ∪ g) := Class.eq fun _ => (Iff.intro Range.map_union Range.unwrap_union)
+
+theorem singleton_fn_dom_rfl : Ensemble u → Ensemble v → dom {(u, v)} = {u} := fun eu ev => Class.eq fun x => (Iff.intro
+    (fun h => by
+      have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h
+      have ⟨h2, _⟩ := singleton_ordered_rfl eu ev h1; rw[h2]
+      exact Class.in_singleton eu)
+    (fun h => by
+      have h1 := singleton_eq eu h; rw[h1]
+      exact Domain.intro (Class.in_singleton (Ensemble.map_ordered eu ev)))) 
+
+theorem singleton_fn_ran_rfl : Ensemble u → Ensemble v → ran {(u, v)} = {v} := fun eu ev => Class.eq fun x => (Iff.intro
+    (fun h => by
+      have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h
+      have ⟨_, h2⟩ := singleton_ordered_rfl eu ev h1; rw[h2]
+      exact Class.in_singleton ev)
+    (fun h => by
+      have h1 := singleton_eq ev h; rw[h1]
+      exact Range.intro (Class.in_singleton (Ensemble.map_ordered eu ev)))) 
+
+theorem Function.include_singular : Function f → Ensemble x → Ensemble y → x ∉ dom f → Function (f ∪ {(x, y)}) := fun ff ex ey h =>
+  ⟨Relation.map_union ff.left (singleton_relative ex ey), fun a b c h1 h2 =>
+    match (Union.split h1), (Union.split h2) with
+    | (Or.inl h1), (Or.inl h2) => ff.right a b c h1 h2
+    | (Or.inr h1), (Or.inr h2) =>
+      have ⟨_, h3⟩ := singleton_ordered_rfl ex ey h1; have ⟨_, h4⟩ := singleton_ordered_rfl ex ey h2; h3.trans h4.symm
+    | (Or.inl h1), (Or.inr h2) => by have ⟨h3, _⟩ := singleton_ordered_rfl ex ey h2; rw[h3] at h1; exact h.elim (Domain.intro h1)
+    | (Or.inr h1), (Or.inl h2) => by have ⟨h3, _⟩ := singleton_ordered_rfl ex ey h1; rw[h3] at h2; exact h.elim (Domain.intro h2)⟩
+
+theorem Domain.exclude_singular : Function f → (x, y) ∈ f → (z ∈ dom (f - {(x, y)}) ↔ z ∈ dom f - {x}) := fun ff h1 => Iff.intro
+  (fun h2 =>
+    have ⟨_, ⟨u, h2'⟩⟩ := Class.classify.mp h2
+    have ⟨h3, h4⟩ := Sub.split h2'
+    Sub.intro (Domain.intro h3) (h4.imp fun h => by
+      have seq := singleton_eq (Ensemble.intro h1).unwrap_ordered_l h 
+      rw[seq] at h3; rw[seq]; rw[Function.yeq ff h1 h3]; exact Class.in_singleton (Ensemble.intro h3)))
+  (fun h2 =>
+    have ⟨h2', h4⟩ := Sub.split h2
+    have ⟨_, ⟨u, h3⟩⟩ := Class.classify.mp h2'
+    Domain.intro (Sub.intro h3 (h4.imp fun h => by
+      have ⟨ex, ey⟩ := Ensemble.unwrap_ordered (Ensemble.intro h1)
+      have ⟨eq, _⟩ := singleton_ordered_rfl ex ey h; rw[eq]
+      exact Class.in_singleton ex)))
+theorem Domain.exclude_singular_eq : Function f → (x, y) ∈ f → dom (f - {(x, y)}) = dom f - {x} :=
+  fun ff h1 => Class.eq fun _ => Domain.exclude_singular ff h1
+
+theorem Range.inv_exclude_singular: Function f⁻¹ → (x, y) ∈ f → (z ∈ ran (f - {(x, y)}) ↔ z ∈ ran f - {y}) := fun ff h1 => Iff.intro
+  (fun h2 =>
+    have ⟨ez, ⟨u, h2'⟩⟩ := Class.classify.mp h2
+    have ⟨h3, h4⟩ := Sub.split h2'
+    Sub.intro (Range.intro h3) (h4.imp fun h => by
+      have seq := singleton_eq (Ensemble.intro h1).unwrap_ordered_r h 
+      rw[seq] at h3; rw[seq]; rw[Function.inv_xeq ff h1 h3]; exact Class.in_singleton (Ensemble.intro h3)))
+  (fun h2 =>
+    have ⟨h2', h4⟩ := Sub.split h2
+    have ⟨_, ⟨u, h3⟩⟩ := Class.classify.mp h2'
+    Range.intro (Sub.intro h3 (h4.imp fun h => by
+      have ⟨ex, ey⟩ := Ensemble.unwrap_ordered (Ensemble.intro h1)
+      have ⟨_, eq⟩ := singleton_ordered_rfl ex ey h; rw[eq]
+      exact Class.in_singleton ey)))
+theorem Range.inv_exclude_singular_eq : Function f⁻¹ → (x, y) ∈ f → ran (f - {(x, y)}) = ran f - {y} :=
+  fun ff h1 => Class.eq fun _ => Range.inv_exclude_singular ff h1
+
+theorem dom_complete_is_complete : dom μ = μ := Class.eq fun _ => Iff.intro
+  (fun h => Class.in_complete.mpr (Ensemble.intro h))
+  (fun h => have ens := Ensemble.intro h; Domain.intro (Class.in_complete.mpr (Ensemble.map_ordered ens ens)))
+
+theorem ran_complete_is_complete : ran μ = μ := Class.eq fun _ => Iff.intro
+  (fun h => Class.in_complete.mpr (Ensemble.intro h))
+  (fun h => have ens := Ensemble.intro h; Range.intro (Class.in_complete.mpr (Ensemble.map_ordered ens ens)))
+
+noncomputable def raw_value (f x : Class) := Classify fun y => (x, y) ∈ f
+noncomputable def Value f x := ∩ raw_value f x
+noncomputable abbrev val := Value
+
+theorem out_of_domain_val_is_complete : x ∉ dom f → val f x = μ := fun h =>
+  have h1 : raw_value f x = Φ := Classical.byContradiction fun f =>
+    have ⟨y, f1⟩ := sib_exist_non_empty.mp f
+    have ⟨_, f2⟩ := Class.classify.mp f1; h (Domain.intro f2)
+  by show ∩ raw_value f x = μ; rw[h1]; exact sinter_empty_is_complete_eq
+
+theorem in_domain_val_is_ens: x ∈ dom f → Ensemble (val f x) := fun h =>
+  have ⟨_, ⟨y, h1⟩⟩ := Class.classify.mp h
+  sinter_ens_non_empty (sib_exist_non_empty.mpr ⟨y, Class.classify.mpr ⟨Ensemble.unwrap_ordered_r (Ensemble.intro h1), h1⟩⟩)
+
+theorem complete_val_is_out_of_domain: val f x = μ → x ∉ dom f := fun h => Not.intro fun f1 =>
+  have ens := in_domain_val_is_ens f1; by rw[h] at ens; exact complete_nens ens
+
+theorem ens_val_is_in_domain : Ensemble (val f x) → x ∈ dom f := fun h => Classical.byContradiction fun f1 =>
+  have f2 := out_of_domain_val_is_complete f1; by rw[f2] at h; exact complete_nens h
+
+theorem fn_val_intro : Function f → (x, y) ∈ f → val f x = y := fun ff h => Class.eq fun z => Iff.intro
+  (fun h1 => (Class.classify.mp h1).right y (Class.classify.mpr ⟨Ensemble.unwrap_ordered_r (Ensemble.intro h), h⟩))
+  (fun h1 => Class.classify.mpr ⟨Ensemble.intro h1, fun w h2 =>
+    have ⟨_, h3⟩ := Class.classify.mp h2; have h4 := Function.yeq ff h h3; by rw[h4] at h1; exact h1⟩)
+
+theorem fn_val_mp : z ∈ val f x → (∀ y, (x, y) ∈ g → (x, y) ∈ f) → z ∈ val g x := fun h conv =>
+  Class.classify.mpr ((Class.classify.mp h).imp_right fun f1 y => have f1' := f1 y;
+    fun h => f1' (Class.classify.mpr ((Class.classify.mp h).imp_right (conv y))))
+
+theorem fn_val_include_singular : Ensemble a → Ensemble b → a ∉ dom f → x ∈ dom f → val (f ∪ {(a, b)}) x = val f x :=
+  fun ea eb h1 h2 => Class.eq fun z => Iff.intro
+    (fun h3 => fn_val_mp h3 fun y h => Union.intro (Or.inl h))
+    (fun h3 => fn_val_mp h3 fun y h => (Union.split h).resolve_right (Not.intro fun f2 =>
+      have ⟨eq_ab, _⟩ := singleton_ordered_rfl ea eb f2; by rw[← eq_ab] at h1; exact h1 h2))
