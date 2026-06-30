@@ -1067,6 +1067,58 @@ theorem Ensemble.map_fn_to_dom : Function f → Ensemble f → Ensemble (dom f) 
         h1, (unwrap_ordered_first (Ensemble.unwrap_ordered (Ensemble.intro h1))).symm⟩))
   by rw[← g_ran_is_f_dom]; apply Ensemble.map_dom_to_ran; exact fg; rw[g_dom_is_f]; exact ef
 
+theorem Ensemble.map_fn_to_dom.verbose : Function f → Ensemble f → Ensemble (dom f) := fun ff ef =>
+  -- `f : X → Y`
+  -- `g : (X → Y) → X` (`(X, Y) → X`)
+  --
+  -- 0. `dom g` is an ordered pair (for proof of `dom g = f`, since `paired_eq` requires it)
+  -- 1. `dom g` is literally `f`, therefore `X → Y`
+  -- 2. `ran g` is `dom f`, therefore `X`
+  -- 3. `f` is a set → `dom g` is a set → `ran g` is a set (through `Ensemble.map_dom_to_ran`, which is an axiom)
+  --    → `dom f` is a set
+  let g := PairedClassify fun u v => u ∈ f ∧ v = First u
+
+  have fg : Function g := ⟨PairedClassify.relative, fun a b c h1 h2 =>
+    -- `h1 : (a, b) ∈ g` ↔ `g(a) = b`
+    -- `h2 : (a, c) ∈ g` ↔ `g(a) = c`
+    -- and we want `b = c`, so unfold them..
+    have ⟨_, _, eq1⟩ := Class.paired_classify.mp h1 -- `a ∈ f`, `b = First a`
+    have ⟨_, _, eq2⟩ := Class.paired_classify.mp h2 -- `a ∈ f`, `c = First a`
+    -- `b = First a = c → b = c`
+    eq1.trans eq2.symm⟩
+
+  have g_dom_relative : Relation (dom g) := fun z h =>
+    -- `h : z ∈ dom g`. we want `∃ x y, z = (x, y)`, unfold it
+    have ⟨_, w, h1⟩ := Class.classify.mp h -- `(z, w) ∈ g` ↔ `g(z) = w`
+    have ⟨_, h2, _⟩ := Class.paired_classify.mp h1 -- `z ∈ f` and `w = First z`, latter one is useless
+    ff.left z h2 -- use `Relation` from `Function f` while we have `z ∈ f`
+
+  have g_dom_is_f : dom g = f := Class.paired_eq g_dom_relative ff.left fun x y => Iff.intro -- `Relation (dom g)` used here..!
+    -- `(x, y) ∈ dom g → (x, y) ∈ f`
+    (fun h => have ⟨_, z, h1⟩ := Class.classify.mp h -- unfolded to `h1 : ((x, y), z) ∈ g` ↔ `g(x, y) = z`
+      have ⟨_, h2, _⟩ := Class.paired_classify.mp h1; h2) -- so we have `(x, y) ∈ f` and `z = x`, use former one
+    -- `(x, y) ∈ f → (x, y) ∈ dom g`
+    (fun h => have exy := Ensemble.intro h
+      -- `g(x, y) = ?` ← `(x, y) ∈ f` and `? = x`, apparently `?` is `x`.
+      Domain.intro (Class.paired_classify.mpr ⟨Ensemble.map_ordered exy (Ensemble.unwrap_ordered_l exy),
+        h, (unwrap_ordered_first (Ensemble.unwrap_ordered exy)).symm⟩))
+
+  have g_ran_is_f_dom : ran g = dom f := Class.eq fun z => Iff.intro
+    -- `z ∈ ran g → z ∈ dom f` so we want `f(z) = ?`
+    (fun h => by
+      have ⟨_, uv, h1⟩ := Class.classify.mp h; -- `(uv, z) ∈ g` ↔ `g(uv) = z`
+      have ⟨exyz, h2, h3⟩ := Class.paired_classify.mp h1 -- unfolds: `uv ∈ f` and `z = First uv`
+      have euv := Ensemble.unwrap_ordered_l exyz; have ⟨u, v, eq1⟩ := ff.left uv h2; -- introduce `u` and `v` for `uv`
+      rw[eq1] at h3; rw[eq1] at euv; rw[eq1] at h2 -- `z = First (u, v)` and `(u, v) ∈ f` ↔ `f(u) = v`
+      have eq2 := unwrap_ordered_first (Ensemble.unwrap_ordered euv); rw[eq2] at h3; rw[h3] -- `z = u`, rewrite the goal
+      exact Domain.intro h2) -- `? = v`
+    -- `z ∈ dom f → z ∈ ran g` so we want `g(a, b) = z`, that is, `f(z) = b` (since `a = z`).
+    (fun h => have ⟨ey, x, h1⟩ := Class.classify.mp h -- `∃ x, f(z) = x`, then `b = z`. got proved.
+      Range.intro (Class.paired_classify.mpr ⟨Ensemble.map_ordered (Ensemble.intro h1) ey,
+        h1, (unwrap_ordered_first (Ensemble.unwrap_ordered (Ensemble.intro h1))).symm⟩))
+  -- finalize
+  by rw[← g_ran_is_f_dom]; apply Ensemble.map_dom_to_ran; exact fg; rw[g_dom_is_f]; exact ef
+
 theorem Ensemble.map_fn_to_ran : Function f → Ensemble f → Ensemble (ran f) := fun ff ef =>
   Ensemble.map_dom_to_ran ff (Ensemble.map_fn_to_dom ff ef)
 
