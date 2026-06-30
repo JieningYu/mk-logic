@@ -1084,7 +1084,7 @@ def On f x := Function f ∧ dom f = x
 def To f y := Function f ∧ ran f ⊆ y
 def Onto f y := Function f ∧ ran f = y
 
-variable {r: Class}
+variable {n r: Class}
 
 def RRelation (x r y : Class) := (x, y) ∈ r
 def rrel := RRelation
@@ -1144,5 +1144,17 @@ theorem WellOrdered.transitive : WellOrdered r x → Transitive r x := fun h u v
   | Or.inr (Or.inr h5) => by rw[h5] at h4; exact (h4 v (in_unordered3' ev)).elim r2
 
 def RSection y r x := y ⊆ x ∧ WellOrdered r x ∧ (∀ u v, u ∈ x → v ∈ y → rrel u r v → u ∈ y)
-def rsec := RSection
+def rseg := RSection
 
+theorem RSection.map_sinter : n ≠ Φ → (∀ y, y ∈ n → rseg y r x) → rseg (∩n) r x := fun nne h =>
+  have ⟨a, h1⟩ := sib_exist_non_empty.mp nne; have ⟨h2, h3, _⟩ := h a h1
+  ⟨fun _ j => apply_subset h2 ((Class.classify.mp j).right a h1), h3,
+    fun u v j1 j2 j3 => Class.classify.mpr ⟨Ensemble.intro j1, fun y j4 =>
+      have ⟨_, _, h4⟩ := h y j4; have ⟨_, j2'⟩ := Class.classify.mp j2; have j2' := j2' y j4
+      h4 u v j1 j2' j3⟩⟩
+
+theorem RSection.map_sunion : n ≠ Φ → (∀ y, y ∈ n → rseg y r x) → rseg (∪n) r x := fun nne h =>
+  have ⟨a, h1⟩ := sib_exist_non_empty.mp nne; have ⟨_, h3, _⟩ := h a h1
+  ⟨fun _ j => have ⟨_, y, j1, j2⟩ := Class.classify.mp j; have ⟨h2, _, _⟩ := h y j2; apply_subset h2 j1, h3,
+    fun u v j1 j2 j3 => have ⟨_, z, j4, j5⟩ := Class.classify.mp j2; have ⟨_, _, h4⟩ := h z j5
+      Class.classify.mpr ⟨Ensemble.intro j1, z, h4 u v j1 j4 j3, j5⟩⟩
